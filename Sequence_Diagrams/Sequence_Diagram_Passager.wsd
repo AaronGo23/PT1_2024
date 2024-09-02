@@ -1,0 +1,25 @@
+@startuml
+
+Title Choisir d'être Passager
+
+actor "Passager"
+participant "Front End" as FrontEnd
+participant Server
+database Database 
+
+autonumber
+
+group Information course
+Passager -> FrontEnd++ : plan_course(course_info)
+FrontEnd -> Server++ : plan_course(course_info)
+Server -> Database++ : send(course_info)
+end
+
+group En attente
+Server -> Database : change_status(passager,"en attente")
+deactivate Database
+Server --> FrontEnd-- : redirect(url_for('waiting_for_driver'))
+FrontEnd --> Passager-- : En attente d'un conducteur...\n(message)
+end
+
+@enduml

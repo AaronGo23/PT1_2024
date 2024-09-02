@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ride Quest - Vehicle Selection</title>
+</head>
+<body>
+    <!-- Display flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul>
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+    
+    <h1>Select Your Vehicle</h1>
+    <form action="/select_vehicle" method="post">
+        <label for="vehicle">Choose a Vehicle:</label>
+        <select id="vehicle" name="vehicle" required>
+            <option value="" disabled selected>Select your vehicle</option>
+            {% for vehicle in vehicles %}
+                <option value="{{ vehicle[0] }}">{{ vehicle[2] }} {{ vehicle[3] }} {{ vehicle[0] }}</option>
+            {% endfor %}
+        </select><br>
+        <div style="display: inline;">
+            <p style="display: inline;"> Or add a new vehicle </p>
+            <button type="button" onclick="window.location.href='{{ url_for('new_vehicle') }}'">Add a Vehicle</button>
+        </div>
+        <br>
+        <button type="submit">Submit</button>
+    </form>
+    <form action="/logout" method="post">
+        <button type="submit">Logout</button>
+    </form>
+</body>
+</html>

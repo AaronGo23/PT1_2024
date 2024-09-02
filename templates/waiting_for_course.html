@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Ride Quest - Waiting for Trip Proposition</title>
+</head>
+<body>
+    <div>
+        <h1>Waiting for a Trip Proposition<span id="loading-dots">...</span></h1>
+        <p id="status"></p>
+    </div>
+    <form action="/logout" method="post">
+        <button type="submit">Logout</button>
+    </form>
+
+    <script>
+        // JavaScript to make loading dots appear and disappear
+        setInterval(function() {
+            var dots = document.getElementById('loading-dots');
+            dots.style.visibility = (dots.style.visibility === 'visible') ? 'hidden' : 'visible';
+        }, 500); // Change the interval as needed
+
+        // Function to check for course assignment
+        function checkForCourse() {
+            fetch('/check_for_course')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'Course found') {
+                        window.location.href = '/course_found';
+                    } else if (data.status === 'No course found') {
+                        setTimeout(checkForCourse, 5000);  // Check again after 5 seconds
+                    } else if (data.error) {
+                        document.getElementById("status").innerText = data.error;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById("status").innerText = 'An error occurred while checking for a course.';
+                });
+        }
+
+        // Start polling
+        checkForCourse();
+    </script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+@startuml
+
+Title Envoi et Course
+
+actor "Passager"
+actor "Conducteur"
+participant "Front\nEnd" as FrontEnd
+participant Server
+participant "API\nGoogleMaps" as GoogleMaps
+database Database 
+
+autonumber
+activate FrontEnd
+activate Server
+
+group Recevoir itinéraire 
+    Passager -> FrontEnd : plan_course(course_info)
+    FrontEnd -> Server : plan_course(course_info)
+    Server -> Database ++: send(course_info)
+    deactivate Database 
+    Server -> GoogleMaps ++: Etablir connexion
+    GoogleMaps --> Server : Connexion établie
+    Server -> GoogleMaps : get_route_passenger(course_info)
+    GoogleMaps --> Server-- : return(info)
+    Server -> Database++ : send(info)
+    deactivate Database
+end
+
+group check_for_driver
+    Server -> Database++ : resquest(available_drivers)
+    Database --> Server-- : send(available_drivers)
+    Server -> Server : sort_drivers(available_drivers)
+
+
+    Server -> FrontEnd : send_course(course_info)
+    FrontEnd -> Conducteur : Voulez-vous accepter\nla course ? (message)
+end
+
+alt Refuse la course
+    Conducteur -> FrontEnd : answer_course(conducteur, non)
+    FrontEnd -> Server : answer_course(conducteur, non)
+
+else Accepte la course
+    autonumber 14
+    Conducteur -> FrontEnd : answer_course(conducteur, oui)
+    FrontEnd -> Server : answer_course(conducteur, oui)
+    Server -> Database++ : send(conducteur, numero_plaques)
+    Server -> Database : change_status(conducteur, "en course")
+    Server -> Database : change_status(passager, "en course")
+    Server -> Database : change_status(course, "en course")
+    Server -> Database : request(course_info)
+    Database --> Server --: send(course_info)
+    Server --> FrontEnd : redirect(url_for('course_found'))
+    Server --> FrontEnd : redirect(url_for('course_found'))
+    FrontEnd --> Conducteur : La course est en cours (message)
+    FrontEnd -> Passager : La course est en cours (message)
+end
+
+
+@enduml

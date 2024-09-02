@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Ride Quest - Waiting for Rider</title>
+</head>
+<body>
+    <div>
+        <h1>Waiting for a Rider to Accept the Trip<span id="loading-dots">...</span></h1>
+        <p id="status"></p>
+        <p id="message"></p>  <!-- Placeholder for status messages -->
+    </div>
+    <form action="/logout" method="post">
+        <button type="submit">Logout</button>
+    </form>
+
+    <script>
+        // JavaScript to make loading dots appear and disappear
+        setInterval(function() {
+            var dots = document.getElementById('loading-dots');
+            dots.style.visibility = (dots.style.visibility === 'visible') ? 'hidden' : 'visible';
+        }, 500);
+
+        function checkForDriver() {
+            fetch('/check_for_driver')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'Course accepted') {
+                        window.location.href = '/course_accepted';
+                    } else if (data.status === 'No driver found, please try again later') {
+                        document.getElementById("message").innerText = data.status;
+                        setTimeout(checkForDriver, 5000);  // Check again after 5 seconds
+                    } else if (data.error) {
+                        document.getElementById("status").innerText = data.error;
+                    } else if (data.status) {
+                        document.getElementById("message").innerText = data.status;  // Handle other statuses
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById("status").innerText = 'An error occurred while checking for a driver.';
+                });
+        }
+
+        // Start polling
+        checkForDriver();
+    </script>
+</body>
+</html>

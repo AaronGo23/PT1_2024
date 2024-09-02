@@ -1,0 +1,617 @@
+import os
+import MySQLdb
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_mysqldb import MySQL
+from datetime import datetime
+
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
+# Configure MySQL
+app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_USER'] = 'root'
+app.config['MYSQL_PASSWORD'] = ''
+app.config['MYSQL_DB'] = 'test'
+mysql = MySQL(app)
+
+# Check MySQL connection
+if mysql:
+    print("Connection to MySQL database successful!")
+else:
+    print("Failed to connect to MySQL database.")
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    # Get the data from the user to sign in
+    if request.method == 'POST':
+        new_email = request.form['email']
+        new_password = request.form['password']
+        new_firstname = request.form['firstname']
+        new_lastname = request.form['lastname']
+        # Get dob as string
+        dob_str = request.form['dob']
+        # Parse the input date string with the original format
+        dob_date = datetime.strptime(dob_str, '%Y-%m-%d')
+        # Parse the input date string with the original format
+        # Format the date in the desired format
+        dob_db = dob_date.strftime('%Y-%m-%d')
+        try:
+            cur = mysql.connection.cursor()
+            # Insert the information into the utilisateur table
+            cur.execute("INSERT INTO utilisateur (adresse_email_utilisateur, mdp_utilisateur, prenom_utilisateur, nom_utilisateur, date_naissance) VALUES (%s, %s, %s, %s, %s)", (new_email, new_password, new_firstname, new_lastname, dob_db))
+            mysql.connection.commit()
+            cur.close()
+            session['user_email'] = new_email
+            flash('Successfully signed up!')
+            return redirect(url_for('select_role'))
+        except Exception as e:
+            print("An error occurred:", e)
+            flash("An error occurred while signing up. Please try again.", "error")
+            
+    return render_template('signup.html')
+
+""" @app.route('/signedin')
+def signedin():
+    return render_template('signedin.html') """
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # Get the data from the user to log in
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        # Check if email and password match a record in the database
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT * FROM utilisateur WHERE adresse_email_utilisateur = %s AND mdp_utilisateur = %s", 
+                    (email, password))
+        user = cur.fetchone()
+        cur.close()
+        if user:
+            # Login successful, redirect to select_role
+            session['user_email'] = email
+            flash("Successfully logged in!")
+            return redirect(url_for('select_role'))
+        else:
+            # Login failed, show error message or redirect to login page
+            return "Login failed. Please check your username and password."
+        
+    return render_template('login.html')
+
+""" @app.route('/loggedin')
+def loggedin():
+    return render_template('loggedin.html') """
+
+@app.route('/select_role', methods=['GET', 'POST'])
+def select_role():
+    if request.method == 'POST':
+        role = request.form['role']
+        user_email = session.get('user_email')
+        
+        if user_email:
+            cur = mysql.connection.cursor()
+            cur.execute("SELECT id_utilisateur FROM utilisateur WHERE adresse_email_utilisateur = %s", [user_email])
+            user_id = cur.fetchone()[0]
+            session['user_id'] = user_id
+            
+            if role == 'driver':
+                # Insert the user as a driver
+                cur.execute("INSERT INTO conducteur (id_utilisateur) VALUES (%s)", [user_id])
+                
+                mysql.connection.commit()
+                cur.close()
+                # Redirect to the select_vehicle route
+                return redirect(url_for('select_vehicle'))
+            elif role == 'passenger':
+                # Insert the user as a passenger
+                cur.execute("INSERT INTO passager (id_utilisateur) VALUES (%s)", [user_id])
+                mysql.connection.commit()
+                cur.close()
+                # Redirect to the select_vehicle route
+                return redirect(url_for('select_vehicle'))
+            
+        else:
+            return "User email not found in session."
+        
+    # If the request method is GET or the role selection failed, render the select_role.html template
+    return render_template('select_role.html')
+
+@app.route('/select_vehicle', methods=['GET', 'POST'])
+def select_vehicle():
+    if request.method == 'POST':
+        user_email = session.get('user_email')
+        user_id = session.get('user_id')
+        
+        if user_email and user_id:
+            cur = mysql.connection.cursor()
+            
+            # Retrieve the vehicles associated with the user
+            cur.execute("SELECT numero_plaques FROM possession WHERE id_utilisateur = %s", [user_id])
+            numero_plaques_rows = cur.fetchall()
+                
+            vehicles = []
+            # For each numero_plaques associated with the user, fetch vehicle details
+            for numero_plaques_row in numero_plaques_rows:
+                numero_plaques = numero_plaques_row[0]
+                cur.execute("SELECT numero_plaques, nombre_sieges, marque, modele, couleur FROM voiture WHERE numero_plaques = %s", [numero_plaques])
+                vehicle = cur.fetchone()
+                vehicles.append(vehicle)
+                
+            mysql.connection.commit()
+            cur.close()
+            
+            # If the request method is POST, handle form submissions
+            if request.method == 'POST':
+                # Handle any form submissions if needed
+                # VOIR CA 
+                # Get the selected vehicle from the form
+                #selected_vehicle = request.form.get('selected_vehicle')
+                pass
+
+            return render_template('select_vehicle.html', vehicles=vehicles)
+        else:
+            return "User email not found in session."
+        
+    # If the request method is GET, render the select_vehicle.html template
+    return render_template('select_vehicle.html', vehicles=vehicles)
+
+
+@app.route('/new_vehicle', methods=['GET', 'POST'])
+def new_vehicle():
+    if request.method == 'POST':
+        try : 
+            user_id = session.get('user_id')
+            # Get the form data for the new vehicle
+            make = request.form['make']
+            model = request.form['model']
+            registration_number = request.form['registration_number']
+            color = request.form['color']
+            num_seats = request.form['num_seats']
+
+            # Insert the new vehicle into the database
+            cur = mysql.connection.cursor()
+            cur.execute("INSERT INTO voiture (numero_plaques, nombre_sieges, marque, modele, couleur) VALUES (%s, %s, %s, %s, %s)", (registration_number, num_seats, make, model, color))
+            cur.execute("INSERT INTO possession (id_utilisateur, numero_plaques) VALUES (%s, %s)", (user_id, registration_number))
+            mysql.connection.commit()
+            cur.close()
+            
+            # Redirect to select_vehicle route after adding the new vehicle
+            return redirect(url_for('select_vehicle'))
+        
+        except MySQLdb.IntegrityError as e:
+            # Handle duplicate entry violation
+            if e.args[0] == 1062:  # MySQL error code for duplicate entry
+                flash("Registration number already exists. Please enter a different registration number.", "error")
+                return redirect(url_for('new_vehicle'))
+            else:
+                flash("An error occurred while adding the vehicle. Please try again.", "error")
+                return redirect(url_for('new_vehicle'))
+
+    return render_template('new_vehicle.html')  # Render the form to add a new vehicle
+
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+import pytest
+from app import app as flask_app, mysql
+import MySQLdb
+from datetime import datetime, timedelta
+import time
+
+# Retry operation for MySQL with a specified number of attempts
+def retry_mysql_operation(operation, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return operation()
+        except MySQLdb.OperationalError as e:
+            print(f"MySQL OperationalError on attempt {attempt + 1}/{max_retries}: {e}")
+            time.sleep(1)  # Wait a bit before retrying
+    raise Exception(f"Operation failed after {max_retries} attempts")
+
+# Function to clean up the database
+def cleanup_database():
+    def operation():
+        with flask_app.app_context():
+            cur = mysql.connection.cursor()
+            try:
+                cur.execute("DELETE FROM course")
+                cur.execute("DELETE FROM conducteur")
+                cur.execute("DELETE FROM passager")
+                cur.execute("DELETE FROM possession")
+                cur.execute("DELETE FROM voiture")
+                cur.execute("DELETE FROM utilisateur")
+                mysql.connection.commit()
+            except MySQLdb.Error as e:
+                print(f"MySQL Error during setup/teardown: {e}")
+                raise
+            finally:
+                cur.close()
+    retry_mysql_operation(operation)
+
+# Fixture to clean up the database before each test
+@pytest.fixture(autouse=True)
+def setup_and_teardown():
+    cleanup_database()
+
+# Function to refresh MySQL connection
+def refresh_mysql_connection():
+    try:
+        mysql.connection.ping(True)
+        print("MySQL connection refreshed")
+    except MySQLdb.OperationalError:
+        mysql.connection.reconnect()
+        print("MySQL connection reconnected")
+
+def create_user(client, email, password, firstname, lastname, dob):
+    return client.post('/signup/', data={
+        'email': email,
+        'password': password,
+        'firstname': firstname,
+        'lastname': lastname,
+        'dob': dob
+    }, follow_redirects=True)
+
+# Test for signing up a driver
+def test_signup_driver(client):
+    refresh_mysql_connection()
+    response = create_user(client, 'driver@gmail.com', 'password123', 'Driver', 'User', '2000-01-01')
+    print("Signup Driver Response:", response.data)
+    assert response.status_code == 200
+    assert b"select_role" in response.data
+
+# Test for signing up a passenger
+def test_signup_passenger(client):
+    refresh_mysql_connection()
+    response = create_user(client, 'passenger@gmail.com', 'password123', 'Passenger', 'User', '2000-01-01')
+    print("Signup Passenger Response:", response.data)
+    assert response.status_code == 200
+    assert b"select_role" in response.data
+
+# Test for logging in a driver
+def test_login_driver(client):
+    refresh_mysql_connection()
+    # Ensure driver exists
+    create_user(client, 'driver@gmail.com', 'password123', 'Driver', 'User', '2000-01-01')
+    response = client.post('/login/', data={
+        'email': 'driver@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    print("Login Driver Response:", response.data)
+    assert response.status_code == 200
+    assert b"select_role" in response.data
+
+# Test for logging in a passenger
+def test_login_passenger(client):
+    refresh_mysql_connection()
+    # Ensure passenger exists
+    create_user(client, 'passenger@gmail.com', 'password123', 'Passenger', 'User', '2000-01-01')
+    response = client.post('/login/', data={
+        'email': 'passenger@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    print("Login Passenger Response:", response.data)
+    assert response.status_code == 200
+    assert b"select_role" in response.data
+
+# Test for selecting role as driver
+def test_select_role_driver(client):
+    refresh_mysql_connection()
+    create_user(client, 'driver@gmail.com', 'password123', 'Driver', 'User', '2000-01-01')
+    client.post('/login/', data={
+        'email': 'driver@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    response = client.post('/select_role/', data={'role': 'driver'}, follow_redirects=True)
+    print("Select Role Driver Response:", response.data)
+    assert response.status_code == 200
+    assert b"select_vehicle" in response.data
+
+# Test for selecting role as passenger
+def test_select_role_passenger(client):
+    refresh_mysql_connection()
+    create_user(client, 'passenger@gmail.com', 'password123', 'Passenger', 'User', '2000-01-01')
+    client.post('/login/', data={
+        'email': 'passenger@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    response = client.post('/select_role/', data={'role': 'passenger'}, follow_redirects=True)
+    print("Select Role Passenger Response:", response.data)
+    assert response.status_code == 200
+    assert b"plan_course" in response.data
+
+# Test for planning a course
+def test_plan_course(client):
+    refresh_mysql_connection()
+    create_user(client, 'passenger@gmail.com', 'password123', 'Passenger', 'User', '2000-01-01')
+    # Log in the passenger
+    response = client.post('/login/', data={
+        'email': 'passenger@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    print("Login Passenger Response:", response.data)
+    assert response.status_code == 200
+    assert b"select_role" in response.data, f"Login failed. Actual response: {response.data}"
+
+    response = client.post('/select_role/', data={'role': 'passenger'}, follow_redirects=True)
+    print("Select Role Passenger Response:", response.data)
+    assert response.status_code == 200
+    assert b"plan_course" in response.data, f"Role selection failed. Actual response: {response.data}"
+
+    response = client.get('/plan_course/', follow_redirects=True)
+    print("Plan Course Get Response:", response.data)
+    assert response.status_code == 200
+
+    # Set a future date for the test
+    future_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+    response = client.post('/plan_course/', data={
+        'origin': 'Grassilière 14, 2016 Cortaillod, Suisse',
+        'destination': 'Croix de Rozon, 1257 Bardonnex',
+        'num_people': 2,
+        'car_trip': 1,
+        'date': future_date,
+        'hour_type': 'departure',
+        'departure_hour': '09:00'
+    }, follow_redirects=True)
+    print("Plan Course Post Response:", response.data)
+    assert response.status_code == 200
+    assert b"Waiting for a Rider to Accept the Trip" in response.data, f"Actual response: {response.data}"
+
+    # Verify that the course was created in the database
+    with flask_app.app_context():
+        refresh_mysql_connection()
+        cur = mysql.connection.cursor()
+        try:
+            print("Executing SELECT query to check for the created course")
+            cur.execute("SELECT * FROM course WHERE id_passager = (SELECT id_utilisateur FROM utilisateur WHERE adresse_email_utilisateur = %s)", ('passenger@gmail.com',))
+            course = cur.fetchone()
+            print("Created Course:", course)
+            assert course is not None, "Course should be created in the database"
+        except MySQLdb.Error as e:
+            print(f"MySQL Error: {e}")
+            raise
+        finally:
+            cur.close()
+
+def test_new_vehicle(client):
+    refresh_mysql_connection()
+    create_user(client, 'driver@gmail.com', 'password123', 'Driver', 'User', '2000-01-01')
+    # Log in the driver
+    client.post('/login/', data={
+        'email': 'driver@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    client.post('/select_role/', data={'role': 'driver'}, follow_redirects=True)
+
+    # Simulate clicking "Add a Vehicle" and navigating to the new vehicle form
+    response = client.get('/new_vehicle/', follow_redirects=True)
+    print("New Vehicle Get Response:", response.data)
+    assert response.status_code == 200
+
+    # Define the new vehicle data
+    new_vehicle_data = {
+        'make': 'TestMarque',  # Original case expected
+        'model': 'TestModele',
+        'registration_number': 'TEST123',
+        'color': 'Blue',
+        'num_seats': 4
+    }
+
+    # Add a vehicle to the database via POST request
+    response = client.post('/new_vehicle/', data=new_vehicle_data, follow_redirects=True)
+    print("New Vehicle Post Response:", response.data)
+    assert response.status_code == 200
+    assert b"Select Your Vehicle" in response.data, "Expected to be redirected to vehicle selection page"
+
+    # Verify the vehicle was added to the database
+    with flask_app.app_context():
+        refresh_mysql_connection()
+        cur = mysql.connection.cursor()
+        try:
+            cur.execute("SELECT * FROM voiture WHERE numero_plaques = %s", (new_vehicle_data['registration_number'],))
+            vehicle = cur.fetchone()
+            print("Vehicle in database:", vehicle)
+            assert vehicle is not None, "Vehicle should be added to the database"
+            # Adjust assertions to account for title case
+            assert vehicle[2] == new_vehicle_data['make'].title(), "Make does not match"
+            assert vehicle[3] == new_vehicle_data['model'].title(), "Model does not match"
+            assert vehicle[4] == new_vehicle_data['color'], "Color does not match"
+            assert vehicle[1] == new_vehicle_data['num_seats'], "Number of seats does not match"
+        except MySQLdb.Error as e:
+            print(f"MySQL Error: {e}")
+            raise
+        finally:
+            cur.close()
+
+def test_select_vehicle(client):
+    refresh_mysql_connection()
+    create_user(client, 'driver@gmail.com', 'password123', 'Driver', 'User', '2000-01-01')
+    # Log in the driver
+    client.post('/login/', data={
+        'email': 'driver@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    client.post('/select_role/', data={'role': 'driver'}, follow_redirects=True)
+
+    # Navigate to the vehicle selection page
+    response = client.get('/select_vehicle/', follow_redirects=True)
+    print("Select Vehicle Get Response:", response.data)
+    assert response.status_code == 200
+
+    # Select the vehicle
+    response = client.post('/select_vehicle/', data={'vehicle': 'TEST123'}, follow_redirects=True)
+    print("Select Vehicle Post Response:", response.data)
+    assert response.status_code == 200
+    assert b"get_location" in response.data
+
+def test_get_location(client):
+    refresh_mysql_connection()
+    create_user(client, 'driver@gmail.com', 'password123', 'Driver', 'User', '2000-01-01')
+    # Log in the driver and select the role
+    client.post('/login/', data={
+        'email': 'driver@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    client.post('/select_role/', data={'role': 'driver'}, follow_redirects=True)
+
+    # Simulate clicking "Add a Vehicle" and navigating to the new vehicle form
+    response = client.get('/new_vehicle/', follow_redirects=True)
+    print("New Vehicle Get Response:", response.data)
+    assert response.status_code == 200
+
+    # Define the new vehicle data
+    new_vehicle_data = {
+        'make': 'TestMarque',  # Original case expected
+        'model': 'TestModele',
+        'registration_number': 'TEST123',
+        'color': 'Blue',
+        'num_seats': 4
+    }
+
+    # Add a vehicle to the database via POST request
+    response = client.post('/new_vehicle/', data=new_vehicle_data, follow_redirects=True)
+    print("New Vehicle Post Response:", response.data)
+    assert response.status_code == 200
+    assert b"Select Your Vehicle" in response.data, "Expected to be redirected to vehicle selection page"
+    
+    # Navigate to the vehicle selection page
+    response = client.get('/select_vehicle/', follow_redirects=True)
+    print("Select Vehicle Get Response:", response.data)
+    assert response.status_code == 200
+
+    # Select the vehicle
+    response = client.post('/select_vehicle/', data={'vehicle': 'TEST123'}, follow_redirects=True)
+    print("Select Vehicle Post Response:", response.data)
+    assert response.status_code == 200
+    assert b"get_location" in response.data
+
+    # Post the driver's location
+    response = client.post('/get_location/', json={
+        'latitude': 46.942158,
+        'longitude': 6.842804
+    }, follow_redirects=True)
+    print("Get Location Response:", response.data)
+    assert response.status_code == 200
+    assert b"waiting_for_course" in response.data
+
+def test_match_driver_and_passenger(client):
+    refresh_mysql_connection()
+    # Ensure the driver and passenger are created first
+    create_user(client, 'driver@gmail.com', 'password123', 'Driver', 'User', '2000-01-01')
+    create_user(client, 'passenger@gmail.com', 'password123', 'Passenger', 'User', '2000-01-01')
+
+    # Log in the driver and select the role
+    client.post('/login/', data={
+        'email': 'driver@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    client.post('/select_role/', data={'role': 'driver'}, follow_redirects=True)
+
+    # Simulate clicking "Add a Vehicle" and navigating to the new vehicle form
+    response = client.get('/new_vehicle/', follow_redirects=True)
+    print("New Vehicle Get Response:", response.data)
+    assert response.status_code == 200
+
+    # Define the new vehicle data
+    new_vehicle_data = {
+        'make': 'TestMarque',
+        'model': 'TestModele',
+        'registration_number': 'TEST123',
+        'color': 'Blue',
+        'num_seats': 4
+    }
+
+    # Add a vehicle to the database via POST request
+    response = client.post('/new_vehicle/', data=new_vehicle_data, follow_redirects=True)
+    print("New Vehicle Post Response:", response.data)
+    assert response.status_code == 200
+    assert b"Select Your Vehicle" in response.data, "Expected to be redirected to vehicle selection page"
+
+    # Navigate to the vehicle selection page
+    response = client.get('/select_vehicle/', follow_redirects=True)
+    print("Select Vehicle Get Response:", response.data)
+    assert response.status_code == 200
+
+    # Select the vehicle
+    response = client.post('/select_vehicle/', data={'vehicle': 'TEST123'}, follow_redirects=True)
+    print("Select Vehicle Post Response:", response.data)
+    assert response.status_code == 200
+    assert b"get_location" in response.data
+
+    # Post the driver's location
+    response = client.post('/get_location/', json={
+        'latitude': 46.942158,
+        'longitude': 6.842804
+    }, follow_redirects=True)
+    print("Get Location Response:", response.data)
+    assert response.status_code == 200
+    assert b"waiting_for_course" in response.data
+
+    # Log in the passenger
+    response = client.post('/login/', data={
+        'email': 'passenger@gmail.com',
+        'password': 'password123'
+    }, follow_redirects=True)
+    print("Login Passenger Response:", response.data)
+    assert response.status_code == 200
+    assert b"select_role" in response.data, f"Login failed. Actual response: {response.data}"
+
+    response = client.post('/select_role/', data={'role': 'passenger'}, follow_redirects=True)
+    print("Select Role Passenger Response:", response.data)
+    assert response.status_code == 200
+    assert b"plan_course" in response.data, f"Role selection failed. Actual response: {response.data}"
+
+    response = client.get('/plan_course/', follow_redirects=True)
+    print("Plan Course Get Response:", response.data)
+    assert response.status_code == 200
+
+    # Set a future date for the test
+    future_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+    response = client.post('/plan_course/', data={
+        'origin': 'Grassilière 14, 2016 Cortaillod, Suisse',
+        'destination': 'Croix de Rozon, 1257 Bardonnex',
+        'num_people': 2,
+        'car_trip': 1,
+        'date': future_date,
+        'hour_type': 'departure',
+        'departure_hour': '09:00'
+    }, follow_redirects=True)
+    print("Plan Course Post Response:", response.data)
+    assert response.status_code == 200
+    assert b"Waiting for a Rider to Accept the Trip" in response.data, f"Actual response: {response.data}"
+
+    # Check for course in the database
+    with flask_app.app_context():
+        refresh_mysql_connection()
+        cur = mysql.connection.cursor()
+        try:
+            print("Checking for course in the database")
+            cur.execute("SELECT * FROM course WHERE id_passager = (SELECT id_utilisateur FROM utilisateur WHERE adresse_email_utilisateur = %s)", ('passenger@gmail.com',))
+            course = cur.fetchone()
+            print("Course found:", course)
+            assert course is not None, "Course should exist for the passenger"
+        except MySQLdb.Error as e:
+            print(f"MySQL Error: {e}")
+            raise
+        finally:
+            cur.close()
+
+    retries = 0
+    max_retries = 10
+    while retries < max_retries:
+        response = client.get('/check_for_course/', follow_redirects=True)
+        print(f"Check for Course Response (Attempt {retries + 1}):", response.data)
+        if b"Course found" in response.data:
+            break
+        time.sleep(1)
+        retries += 1
+
+    assert response.status_code == 200
+    assert b"Course found" in response.data, f"Actual response: {response.data}"
+

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ride Quest - Trip Planning</title>
+</head>
+<body>
+    <h2>Enter your Trip Information</h2>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul>
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+
+    <form action="/plan_course" method="post">
+        <label for="origin">Origin:</label>
+        <input type="text" id="origin" name="origin" required><br><br>
+
+        <label for="destination">Destination:</label>
+        <input type="text" id="destination" name="destination" required><br><br>
+
+        <label for="num_people">Number of People:</label>
+        <input type="number" id="num_people" name="num_people" min="1" required><br><br>
+
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" required><br><br>
+
+        <input type="radio" id="arrival" name="hour_type" value="arrival" checked>
+        <label for="arrival">Arrival Hour:</label>
+        <input type="time" id="arrival_hour" name="arrival_hour" required><br><br>
+
+        <input type="radio" id="departure" name="hour_type" value="departure">
+        <label for="departure">Departure Hour:</label>
+        <input type="time" id="departure_hour" name="departure_hour" required><br><br>
+
+        <label for="car_trip">Only Car Trip: - for this project only select yes please -</label>
+        <select id="car_trip" name="car_trip">
+            <option value="1">Yes</option>
+            <option value="0">No</option>
+        </select><br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+    <form action="/logout" method="post">
+        <button type="submit">Logout</button>
+    </form>
+
+    <script>
+        // Disable the departure hour input initially
+        document.getElementById('departure_hour').disabled = true;
+
+        // Add event listeners to the radio buttons to enable/disable the corresponding hour input
+        document.getElementById('arrival').addEventListener('change', function() {
+            document.getElementById('arrival_hour').disabled = false;
+            document.getElementById('departure_hour').disabled = true;
+            document.getElementById('departure_hour').value = ''; // Clear the departure hour value
+        });
+
+        document.getElementById('departure').addEventListener('change', function() {
+            document.getElementById('arrival_hour').disabled = true;
+            document.getElementById('arrival_hour').value = ''; // Clear the arrival hour value
+            document.getElementById('departure_hour').disabled = false;
+        });
+    </script>
+</body>
+</html>

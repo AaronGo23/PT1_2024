@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ride Quest - Trip Accepted</title>
+</head>
+<body>
+    <div> 
+        <h1>The trip is ongoing<span id="loading-dots">...</span></h1>
+    </div>
+    <form action="/course_accepted" method="post">
+        <button type="submit" name="accept" value="report">Report</button>
+        <button type="submit" name="accept" value="end">End</button>
+    </form>
+
+    <script>
+        // JavaScript to make loading dots appear and disappear
+        setInterval(function() {
+            var dots = document.getElementById('loading-dots');
+            dots.style.visibility = (dots.style.visibility === 'visible') ? 'hidden' : 'visible';
+        }, 500);
+    </script>
+</body>
+</html>

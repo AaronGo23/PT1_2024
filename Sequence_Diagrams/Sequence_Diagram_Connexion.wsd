@@ -1,0 +1,38 @@
+@startuml
+
+Title Connexion et Choix du rôle
+
+actor "Utilisateur"
+participant "Front\nEnd" as FrontEnd
+participant Server
+database Database 
+
+autonumber 1
+activate Server
+activate FrontEnd
+
+group Entrer ses identifiants
+    Utilisateur -> FrontEnd: login(email,motdepasse)
+    FrontEnd -> Server : login(email,motdepasse)
+    Server -> Database++ : send(email,motdepasse)
+    Database --> Server-- : respond(id_utilisateur)
+    Server -> Server : check(id_utilisateur)
+end
+
+alt valide 
+    Server -> FrontEnd : redirect(url_for('select_role'))
+    FrontEnd --> Utilisateur : Choisir entre être\nConducteur ou Passager (message)
+   
+    Utilisateur -> FrontEnd : select_role(rôle)
+    FrontEnd -> Server : select_role(rôle)
+    Server -> Database++ : send(rôle)
+    deactivate Database
+    'se deactivate mal
+
+else invalide
+    autonumber 6
+    Server -> FrontEnd : redirect(url_for('login'))
+    FrontEnd --> Utilisateur : Informations invalides,\nveuillez recommencer (message)
+end
+
+@enduml

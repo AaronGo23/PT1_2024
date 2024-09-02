@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Ride Quest - Trip Proposition Found</title>
+    <style>
+        /* Ensure the map container has a proper height and width */
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+    </style>
+    <!-- Add the async defer attributes to load the API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCR5EJzIIeA5yKR53kWfjRKfVHp21KTqYI&libraries=geometry&callback=initMap" async defer></script>
+    <script>
+        function initMap() {
+            // Decode the encoded polyline
+            const encodedPolyline = {{ encodedpolyline | tojson | safe }}; // Escaping the encoded polyline
+            console.log("Encoded Polyline:", encodedPolyline);
+            const path = google.maps.geometry.encoding.decodePath(encodedPolyline);
+            console.log("Decoded Path:", path);
+
+            // Check if path has coordinates
+            if (path.length === 0) {
+                console.error("Decoded path is empty. Please check the encoded polyline.");
+                return;
+            }
+
+            // Create a map centered at the first point of the polyline
+            const map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: path[0]
+            });
+
+            // Create a polyline and add it to the map
+            const polyline = new google.maps.Polyline({
+                path: path,
+                geodesic: true,
+                strokeColor: '#FF0000',
+                strokeOpacity: 1.0,
+                strokeWeight: 2
+            });
+
+            polyline.setMap(map);
+        }
+    </script>
+</head>
+<body>
+    <h1>A Trip Has Been Found!</h1>
+    <p>Here are the details of this trip:</p>
+    <ul>
+        <li>Origin: {{ origin }}</li>
+        <li>Destination: {{ destination }}</li>
+        <li>Distance: {{ distance }} km</li>
+        <li>Number of passengers: {{ num_people }}</li>
+        <li>Date/Hour of departure: {{ departure_hour }}</li>
+        <li>Date/Hour of arrival: {{ arrival_hour }}</li>
+        <li>Duration: {{ duration }}</li>
+        <li>Map: <div id="map"></div></li>
+    </ul>
+    <p>Do you want to accept it?</p>
+    <form action="/course_found" method="post">
+        <button type="submit" name="accept" value="yes">Yes</button>
+        <button type="submit" name="accept" value="no">No</button>
+    </form>
+    <noscript>
+        <p>JavaScript is required to view the map. Please enable JavaScript and reload the page.</p>
+    </noscript>
+</body>
+</html>

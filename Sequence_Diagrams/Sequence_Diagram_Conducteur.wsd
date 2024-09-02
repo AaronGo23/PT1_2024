@@ -1,0 +1,45 @@
+@startuml
+
+Title Choisir d'être Conducteur
+
+actor "Conducteur"
+participant "Front\nEnd" as FrontEnd
+participant Server
+database Database 
+
+autonumber 
+activate Server
+activate FrontEnd
+
+group Entrer un nouveau véhicule
+    Conducteur -> FrontEnd : new_vehicle(vehicule_info)
+    FrontEnd -> Server : new_vehicle(vehicule_info)
+    Server -> Database++ : new_vehicle(vehicule_info)
+    Server -> FrontEnd : redirect(url_for('select_vehicle'))
+    deactivate Database
+end
+
+group Choisir un véhicule
+    Conducteur -> FrontEnd : select_vehicle(vehicle_selected)
+    FrontEnd -> Server : select_vehicle(vehicle_selected)
+    Server -> Database++ : select_vehicle(vehicle_selected)
+    Server -> Database : change_status(vehicle,"en utilisation")
+    deactivate Database
+end
+
+group Géolocalisation
+    Server-> FrontEnd : redirect(url_for('ask_location'))
+    FrontEnd-> Conducteur : Veuillez accepter de donner votre géolocalition (message)
+    Conducteur -> FrontEnd : get_location() 
+    FrontEnd -> Server : get_location() 
+    Server -> Database++ : stock_location\n(latitude_conducteur,\nlongitude_conducteur) 
+end 
+
+group En attente d'une course
+    Server -> Database : change_status(conducteur,"libre")
+    deactivate Database
+    Server --> FrontEnd : redirect(url_for('waiting_for_course'))
+    FrontEnd --> Conducteur : En attente d'une course...\n(message)
+end
+
+@enduml

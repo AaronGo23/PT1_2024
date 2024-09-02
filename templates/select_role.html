@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ride Quest - Select Role</title>
+</head>
+<body>
+    {% with messages = get_flashed_messages(with_categories=true) %} 
+        {% if messages %}
+            <ul>
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+            <script>
+                setTimeout(function(){
+                    window.location.href = "/select_role";
+                }, 3000);  // Redirect after 3 seconds
+            </script>
+        {% endif %}
+    {% endwith %}
+
+    <h1>Select Your Role</h1>
+    <form action="/select_role" method="post">
+        <label for="role">Role:</label>
+        <select id="role" name="role" required>
+            <option value="" disabled selected>Select your role</option>
+            <option value="driver">Driver</option>
+            <option value="passenger">Passenger</option>
+        </select><br>
+        <button type="submit">Submit</button>
+    </form>
+    <form action="/logout" method="post">
+        <button type="submit">Logout</button>
+    </form>
+</body>
+</html>
